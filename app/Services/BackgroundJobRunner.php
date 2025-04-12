@@ -53,6 +53,14 @@ class BackgroundJobRunner
                 return true;
             }
 
+            // Check if job is already completed or cancelled
+            if (in_array($job->status, ['completed', 'cancelled'])) {
+                return true;
+            }
+
+            // Store current process ID
+            $job->update(['process_id' => getmypid()]);
+            
             $job->markAsRunning();
             $this->logJobStart();
 
@@ -60,11 +68,24 @@ class BackgroundJobRunner
             // Pass parameters as a single array argument
             $result = $instance->{$job->method}($job->parameters ?? []);
 
-            $job->markAsCompleted();
-            $this->logJobCompletion(true);
-            return true;
+            // Clear process ID on completion
+            $job->update(['process_id' => null]);
+
+            // Only mark as completed if the job returns true
+            if ($result === true) {
+                $job->markAsCompleted();
+                $this->logJobCompletion(true);
+                return true;
+            }
+
+            // If job returns false, mark as failed
+            $job->markAsFailed('Job returned false');
+            return false;
 
         } catch (Exception $e) {
+            // Clear process ID on error
+            $job->update(['process_id' => null]);
+            
             $this->logError($e);
             $job->markAsFailed($e->getMessage());
             
@@ -77,23 +98,46 @@ class BackgroundJobRunner
     }
 
     /**
-     * Cancel a running job
+     * Cancel a running or pending job
      */
     public function cancel(BackgroundJob $job): bool
     {
         if (!$job->canBeCancelled()) {
+            Log::error("Cannot cancel job {$job->id}: Job status is {$job->status}");
             return false;
         }
 
         try {
-            $process = Process::fromShellCommandline("kill {$job->process_id}");
-            $process->run();
+            // For running jobs with a process ID, try to kill the process
+            if ($job->status === 'running' && $job->process_id) {
+                // Send SIGTERM to the process
+                $process = Process::fromShellCommandline("kill -15 {$job->process_id}");
+                $process->run();
 
+                if (!$process->isSuccessful()) {
+                    Log::error("Failed to send SIGTERM to process {$job->process_id}: " . $process->getErrorOutput());
+                    
+                    // Try SIGKILL as a last resort
+                    $process = Process::fromShellCommandline("kill -9 {$job->process_id}");
+                    $process->run();
+                    
+                    if (!$process->isSuccessful()) {
+                        Log::error("Failed to send SIGKILL to process {$job->process_id}: " . $process->getErrorOutput());
+                        return false;
+                    }
+                }
+            }
+
+            // Update job status
             $job->update([
                 'status' => 'cancelled',
-                'completed_at' => Carbon::now()
+                'completed_at' => Carbon::now(),
+                'process_id' => null,
+                'error' => $job->status === 'running' ? 'Job cancelled while running' : 'Job cancelled before execution'
             ]);
 
+            Log::info("Successfully cancelled job {$job->id} (Status was: {$job->status}" . 
+                     ($job->process_id ? ", PID: {$job->process_id})" : ")"));
             return true;
         } catch (Exception $e) {
             Log::error("Failed to cancel job {$job->id}: " . $e->getMessage());

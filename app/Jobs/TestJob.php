@@ -36,8 +36,10 @@ class TestJob
         Log::info("Processing successful job with data: " . json_encode($data));
         sleep(2); // Simulate work
 
-        // Example of chaining another job
-        $this->chain(TestJob::class, 'delayed', ['delay' => 5]);
+        // Only chain if explicitly requested
+        if (!empty($data['chain'])) {
+            $this->chain(TestJob::class, 'delayed', ['delay' => 5]);
+        }
         
         return true;
     }

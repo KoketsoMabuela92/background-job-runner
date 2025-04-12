@@ -87,6 +87,6 @@ class BackgroundJob extends Model
 
     public function canBeCancelled()
     {
-        return $this->status === 'running' && $this->process_id !== null;
+        return in_array($this->status, ['running', 'pending']);
     }
 } 
