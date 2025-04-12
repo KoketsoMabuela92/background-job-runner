@@ -185,6 +185,9 @@ php artisan job:create "App\Jobs\ExampleJob" handle '{"message": "test"}' --prio
 # Run pending jobs manually (normally handled by scheduler)
 php artisan job:run-pending
 
+# Run pending jobs with verbose output
+php artisan job:run-pending -v
+
 # View job status
 php artisan job:status {job_id}
 
@@ -194,6 +197,33 @@ php artisan job:cancel {job_id}
 # Retry a failed job
 php artisan job:retry {job_id}
 ```
+
+### Running Jobs Manually
+
+While the scheduler automatically processes jobs every minute, you can also run pending jobs manually:
+
+1. **Process all pending jobs**:
+   ```bash
+   php artisan job:run-pending
+   ```
+
+2. **Process with verbose output** (shows job details and progress):
+   ```bash
+   php artisan job:run-pending -v
+   ```
+
+3. **Check job status after processing**:
+   ```bash
+   php artisan job:status {job_id}
+   ```
+
+This is useful for:
+- Testing jobs during development
+- Immediate processing without waiting for the scheduler
+- Debugging job execution with verbose output
+- Processing specific jobs on demand
+
+Note: Manual processing doesn't interfere with the scheduler. The scheduler will continue to process any remaining pending jobs according to its schedule.
 
 ### Creating a Job Class
 
