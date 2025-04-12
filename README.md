@@ -1,3 +1,7 @@
+<img width="1487" alt="Screenshot 2025-04-13 at 00 49 24" src="https://github.com/user-attachments/assets/4d8af5bd-7432-4a96-b68e-f4287faf7b8f" />
+
+
+
 # Laravel Background Job Runner
 
 A custom background job processing system for Laravel that operates independently of Laravel's built-in queue system. This system provides a flexible, secure, and platform-independent way to execute PHP classes as background jobs.
